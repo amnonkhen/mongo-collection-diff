@@ -1,0 +1,16 @@
+db.runCommand(
+    {
+        aggregate: 'unique_usis',
+        pipeline: [
+            { $project: { usi: '$_id.usi', protocol: '$_id.protocol' } },
+            { $group: { _id: '$usi', protocols: { $addToSet: '$protocol' } } },
+            { $project: {protocols: '$protocols', s: {$size: '$protocols'}}},
+            { $match: { s:1,}},
+            { $unwind: "$protocols" },
+            { $group: { _id: '$protocols', usis: { $addToSet: '$_id' } } },
+            { $out: 'ctml_fpml_diff' }
+        ],
+         
+        allowDiskUse: true,
+    }
+)
