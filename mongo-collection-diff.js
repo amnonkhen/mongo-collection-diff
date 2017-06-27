@@ -46,14 +46,9 @@ function buildUniqueCollName(coll: string, side: string): string {
     return 'unique_' + coll + '_' + side;
 }
 
-function log_process_output(code, stdout, stderr) {
-    console.log('Exit code:', code);
-    console.log('Program output:', stdout);
-    console.log('Program stderr:', stderr);
-}
 
 function do_export() {
-    var export_cmd = _.template('"${mongoexport}" -v --host ${mongo_server} -d "${dbname}" -c "${unique_coll}" --out "${work_dir}\\${unique_coll}.json"  --type json')
+    var export_cmd = _.template('"${mongoexport}" --verbose --host ${mongo_server} -d "${dbname}" -c "${unique_coll}" --out "${work_dir}\\${unique_coll}.json"  --type json')
         ({
             mongoexport: 'C:\\Program Files\\MongoDB\\Server\\3.2\\bin\\mongoexport',
             mongo_server: 'sd-dfc9-2176:27017',
@@ -62,7 +57,10 @@ function do_export() {
             work_dir: work_dir
         });
     console.log('running export command: ' + export_cmd);
-    shelljs.exec(export_cmd, { async: true, silent: false }, log_process_output);
+    var export_output = shelljs.exec(export_cmd, 
+        { async: false, silent: false }
+        );
+    console.log('after export')
 }
 
 function do_import() {
@@ -76,13 +74,14 @@ function do_import() {
             work_dir: work_dir
         });
     console.log('running import command: ' + import_cmd);
-    shelljs.exec(import_cmd, { async: true, silent: false }, log_process_output);
+    shelljs.exec(import_cmd, { async: false, silent: false });
+    console.log('after export')
 }
 
 
 
 function minus(dbname, left, right, coll) {
-    console.log('calculating ' + left.label + " minus " + right.label);
+    console.log('calculating diff of ' + left.label + " and " + right.label);
     var diff_coll = "diff_" + left.label + "_" + right.label;
     var _db = db.getSiblingDB(dbname);
     var cursor;
@@ -125,9 +124,20 @@ function buildDifferenceCollection(_db, left, right, diff_coll) {
     cursor.toArray();
 }
 
-find_unique(coll1.dbname, coll1.coll, coll1.label, coll1.keys);
-find_unique(coll2.dbname, coll2.coll, coll2.label, coll2.keys);
+function clean(dbname, left, right, target_coll) {
+    var diff_coll = "diff_" + left.label + "_" + right.label;
+    var _db = db.getSiblingDB(dbname);
+    _db.getCollection(diff_coll).drop();
+    _db.getCollection(left.label + "_minus_" + right.label).drop();
+    _db.getCollection(right.label + "_minus_" + left.label).drop();
+    _db.getCollection(target_coll).drop();
+}
+
+console.log('started');
+clean(target_dbname, coll1, coll2, target_coll);
+// find_unique(coll1.dbname, coll1.coll, coll1.label, coll1.keys);
 db.getSiblingDB(target_dbname).getCollection(target_coll).createIndex({ "_id.usi": 1 })
 do_export();
 do_import();
-minus(target_dbname, coll1, coll2, target_coll);
+minus(target_dbname, coll1, coll2, target_coll);find_unique(coll2.dbname, coll2.coll, coll2.label, coll2.keys);
+console.log('done');
