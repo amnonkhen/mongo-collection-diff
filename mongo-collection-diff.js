@@ -17,6 +17,7 @@ var coll2 = {
 var target_dbname = coll2.dbname;
 var target_coll = buildUniqueCollName(coll2.coll, coll2.label);
 var work_dir = 'c:\\temp';
+var keys = coll2.keys;
 
 function find_unique(dbname: string, coll: string, side: string, keys) {
     var _db = db.getSiblingDB(dbname);
@@ -80,20 +81,25 @@ function do_import() {
 
 
 
-function minus(dbname, left, right, coll) {
+function minus(dbname, left, right, coll, keys) {
     console.log('calculating diff of ' + left.label + " and " + right.label);
     var diff_coll = "diff_" + left.label + "_" + right.label;
     var _db = db.getSiblingDB(dbname);
     var cursor;
     console.log('running diff');
     _db.getCollection(diff_coll).remove({})
+    var _project = _.mapValues(keys, (value, key, object) => '$_id.' + key);
+    _.assign(_project, { side: '$_id.side' })
+    var _group = _.mapValues(keys, (value, key, object) => '$' + key);
+    
     cursor =
         _db.getSiblingDB(dbname)
             .getCollection(coll)
             .aggregate(
             [
-                { $project: { usi: '$_id.usi', tradeType: '$_id.tradeType', side: '$_id.side' } },
-                { $group: { _id: { usi: '$usi', tradeType: '$tradeType' }, sides: { $addToSet: '$side' } } },
+                { $project: _project },
+                // { $group: { _id: { usi: '$usi', tradeType: '$tradeType' }, sides: { $addToSet: '$side' } } },
+                { $group: { _id: _group, sides: { $addToSet: '$side' } } },
                 { $project: { sides: '$sides', s: { $size: '$sides' } } },
                 { $match: { s: 1, } },
                 { $unwind: "$sides" },
@@ -104,8 +110,8 @@ function minus(dbname, left, right, coll) {
             );
     cursor.toArray();
 
-    buildDifferenceCollection(_db, left, right, diff_coll);
-    buildDifferenceCollection(_db, right, left, diff_coll);
+    // buildDifferenceCollection(_db, left, right, diff_coll);
+    // buildDifferenceCollection(_db, right, left, diff_coll);
     console.log('done');
 }
 
@@ -134,10 +140,11 @@ function clean(dbname, left, right, target_coll) {
 }
 
 console.log('started');
-clean(target_dbname, coll1, coll2, target_coll);
+// clean(target_dbname, coll1, coll2, target_coll);
 // find_unique(coll1.dbname, coll1.coll, coll1.label, coll1.keys);
-db.getSiblingDB(target_dbname).getCollection(target_coll).createIndex({ "_id.usi": 1 })
-do_export();
-do_import();
-minus(target_dbname, coll1, coll2, target_coll);find_unique(coll2.dbname, coll2.coll, coll2.label, coll2.keys);
+// find_unique(coll2.dbname, coll2.coll, coll2.label, coll2.keys);
+// db.getSiblingDB(target_dbname).getCollection(target_coll).createIndex({ "_id.usi": 1 })
+// do_export();
+// do_import();
+minus(target_dbname, coll1, coll2, target_coll, keys);
 console.log('done');
