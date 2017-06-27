@@ -8,7 +8,7 @@ var coll1 = {
 };
 
 var coll2 = {
-    dbname: 'QControlData_FX_2506_fix',
+    dbname: 'QControlData_FX_2606',
     coll: 'tradeEvent',
     label: 'ctml2',
     keys: { usi: 1, tradeType: 1 },
@@ -51,78 +51,83 @@ function log_process_output(code, stdout, stderr) {
     console.log('Program output:', stdout);
     console.log('Program stderr:', stderr);
 }
-// find_unique('ctml_ak81894_sd-dfc9-2176_2017_06_25_2200', 'fxpgEvent', 'ctml1', { usi: 1, tradeType: '$eventType' });
-// find_unique('QControlData_FX_2506_fix', 'tradeEvent', 'ctml2', { usi: 1, tradeType: 1 });
-// db.getSiblingDB(target_dbname).getCollection(target_coll).createIndex({ "_id.usi": 1 })
 
-var export_cmd = _.template('"${mongoexport}" -v --host ${mongo_server} -d "${dbname}" -c "${unique_coll}" --out "${work_dir}\\${unique_coll}.json"  --type json')
-    ({
-        mongoexport: 'C:\\Program Files\\MongoDB\\Server\\3.2\\bin\\mongoexport',
-        mongo_server: 'sd-dfc9-2176:27017',
-        dbname: coll1.dbname,
-        unique_coll: buildUniqueCollName(coll1.coll, coll1.label),
-        work_dir: work_dir
-    });
-console.log('running export command: ' + export_cmd);
-// shelljs.exec(export_cmd, {async:true, silent:false}, log_process_output );
+function do_export() {
+    var export_cmd = _.template('"${mongoexport}" -v --host ${mongo_server} -d "${dbname}" -c "${unique_coll}" --out "${work_dir}\\${unique_coll}.json"  --type json')
+        ({
+            mongoexport: 'C:\\Program Files\\MongoDB\\Server\\3.2\\bin\\mongoexport',
+            mongo_server: 'sd-dfc9-2176:27017',
+            dbname: coll1.dbname,
+            unique_coll: buildUniqueCollName(coll1.coll, coll1.label),
+            work_dir: work_dir
+        });
+    console.log('running export command: ' + export_cmd);
+    shelljs.exec(export_cmd, { async: true, silent: false }, log_process_output);
+}
 
-var import_cmd = _.template('"${mongoimport}" -v --host ${mongo_server} -d "${dbname}" -c "${target_coll}" --file "${work_dir}\\${unique_coll}.json"  --type json')
-    ({
-        mongoimport: 'C:\\Program Files\\MongoDB\\Server\\3.2\\bin\\mongoimport',
-        mongo_server: 'sd-dfc9-2176:27017',
-        dbname: target_dbname,
-        target_coll: buildUniqueCollName(coll2.coll, coll2.label),
-        unique_coll: buildUniqueCollName(coll1.coll, coll1.label),
-        work_dir: work_dir
-    });
-console.log('running import command: ' + import_cmd);
-// shelljs.exec(import_cmd, {async:true, silent:false},  log_process_output);
+function do_import() {
+    var import_cmd = _.template('"${mongoimport}" -v --host ${mongo_server} -d "${dbname}" -c "${target_coll}" --file "${work_dir}\\${unique_coll}.json"  --type json')
+        ({
+            mongoimport: 'C:\\Program Files\\MongoDB\\Server\\3.2\\bin\\mongoimport',
+            mongo_server: 'sd-dfc9-2176:27017',
+            dbname: target_dbname,
+            target_coll: buildUniqueCollName(coll2.coll, coll2.label),
+            unique_coll: buildUniqueCollName(coll1.coll, coll1.label),
+            work_dir: work_dir
+        });
+    console.log('running import command: ' + import_cmd);
+    shelljs.exec(import_cmd, { async: true, silent: false }, log_process_output);
+}
 
-
-
-minus(target_dbname, coll1, coll2, target_coll);
 
 
 function minus(dbname, left, right, coll) {
-    console.log('calculating ' + left.label + "_minus_" + right.label);
+    console.log('calculating ' + left.label + " minus " + right.label);
     var diff_coll = "diff_" + left.label + "_" + right.label;
+    var _db = db.getSiblingDB(dbname);
     var cursor;
     console.log('running diff');
-    // cursor =
-    //     db.getSiblingDB(dbname)
-    //         .getCollection(coll)
-    //         .aggregate(
-    //         [
-    //             { $project: { usi: '$_id.usi', tradeType: '$_id.tradeType', side: '$_id.side' } },
-    //             { $group: { _id: { usi: '$usi', tradeType: '$tradeType' }, sides: { $addToSet: '$side' } } },
-    //             { $project: { sides: '$sides', s: { $size: '$sides' } } },
-    //             { $match: { s: 1, } },
-    //             { $unwind: "$sides" },
-    //             { $group: { _id: '$sides', usis: { $addToSet: '$_id' } } },
-    //             { $out: diff_coll }
-    //         ],
-    //         { allowDiskUse: true }
-    //         );
-    // cursor.toArray();
-
-    console.log('building difference collections');
+    _db.getCollection(diff_coll).remove({})
     cursor =
-         db.getSiblingDB(dbname).getCollection(diff_coll).aggregate([
-            { $match: { _id: left.label } },
-            { $unwind: "$usis" },
-            { $group: { _id: { usi: '$usis.usi', tradeType: '$usis.tradeType' } } },
-            { $out: left.label + "_minus_" + right.label }
-        ]);
+        _db.getSiblingDB(dbname)
+            .getCollection(coll)
+            .aggregate(
+            [
+                { $project: { usi: '$_id.usi', tradeType: '$_id.tradeType', side: '$_id.side' } },
+                { $group: { _id: { usi: '$usi', tradeType: '$tradeType' }, sides: { $addToSet: '$side' } } },
+                { $project: { sides: '$sides', s: { $size: '$sides' } } },
+                { $match: { s: 1, } },
+                { $unwind: "$sides" },
+                { $group: { _id: '$sides', usis: { $addToSet: '$_id' } } },
+                { $out: diff_coll }
+            ],
+            { allowDiskUse: true }
+            );
     cursor.toArray();
 
-    cursor =
-         db.getSiblingDB(dbname).getCollection(diff_coll).aggregate([
-            { $match: { _id: right.label } },
-            { $unwind: "$usis" },
-            { $group: { _id: { usi: '$usis.usi', tradeType: '$usis.tradeType' } } },
-            { $out: right.label + "_minus_" + left.label }
-        ]);
-    cursor.toArray();
+    buildDifferenceCollection(_db, left, right, diff_coll);
+    buildDifferenceCollection(_db, right, left, diff_coll);
     console.log('done');
 }
 
+
+function buildDifferenceCollection(_db, left, right, diff_coll) {
+    console.log('building difference collection: ' + left.label + " minus" + right.label);
+    var coll_l_minus_r = left.label + "_minus_" + right.label;
+    _db.getCollection(coll_l_minus_r).remove({})
+    var cursor =
+        _db.getCollection(diff_coll).aggregate([
+            { $match: { _id: left.label } },
+            { $unwind: "$usis" },
+            { $group: { _id: { usi: '$usis.usi', tradeType: '$usis.tradeType' } } },
+            { $out: coll_l_minus_r }
+        ]);
+    cursor.toArray();
+}
+
+find_unique(coll1.dbname, coll1.coll, coll1.label, coll1.keys);
+find_unique(coll2.dbname, coll2.coll, coll2.label, coll2.keys);
+db.getSiblingDB(target_dbname).getCollection(target_coll).createIndex({ "_id.usi": 1 })
+do_export();
+do_import();
+minus(target_dbname, coll1, coll2, target_coll);
