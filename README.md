@@ -32,12 +32,9 @@ var coll2 = {
 };
 ```
 
-
-
 # Performance
 The currnet benchmark is:
 * 2 collections on different DBs
 * ~800k documents
 * most of them have unique keys
-* process  takes 10 minutes
-
+* process takes 22 minutes
