@@ -9,7 +9,7 @@ The easiest way is to run it from Mongobooster. That is because it needs Lodas a
 * The target collections wil be generated in `coll2.dbname` database
 * The target collections will contain the key fields
 
-```
+```javascript
 var coll1 = {
     dbname: 'ctml_ak81894_sd-dfc9-2176_2017_06_25_2200',
     coll: 'fxpgEvent',
