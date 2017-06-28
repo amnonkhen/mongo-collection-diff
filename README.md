@@ -5,9 +5,15 @@ a utility to compare to mongo collections and generate 2 collections with the di
 # Usage
 The easiest way is to run it from Mongobooster. That is because it needs Lodas and ShellJS, which are provided in MongoBooster.
 
-* set up your DB and collection and key set in the `coll` and `coll2` objects.
-* The target collections wil be generated in `coll2.dbname` database
-* The target collections will contain the key fields
+- set up the `coll1` and `coll2` objects with:
+    - DB name
+    - collection name 
+    - key set
+    - label
+
+# output
+- The target collections wil be generated in `coll2.dbname` database
+- The target collections will contain the key fields
 
 ```javascript
 var coll1 = {
