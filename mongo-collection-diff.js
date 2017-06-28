@@ -5,6 +5,7 @@ var coll1 = {
     coll: 'fxpgEvent',
     label: 'ctml1',
     keys: { usi: 1, tradeType: '$eventType' },
+    key_mapping : {tradeType: 'eventType'}
 };
 
 var coll2 = {
@@ -140,11 +141,11 @@ function clean(dbname, left, right, target_coll) {
 }
 
 console.log('started');
-clean(target_dbname, coll1, coll2, target_coll);
-find_unique(coll1.dbname, coll1.coll, coll1.label, coll1.keys);
-find_unique(coll2.dbname, coll2.coll, coll2.label, coll2.keys);
-db.getSiblingDB(target_dbname).getCollection(target_coll).createIndex({ "_id.usi": 1 })
-do_export();
-do_import();
+// clean(target_dbname, coll1, coll2, target_coll);
+// find_unique(coll1.dbname, coll1.coll, coll1.label, coll1.keys);
+// find_unique(coll2.dbname, coll2.coll, coll2.label, coll2.keys);
+// db.getSiblingDB(target_dbname).getCollection(target_coll).createIndex({ "_id.usi": 1 })
+// do_export();
+// do_import();
 minus(target_dbname, coll1, coll2, target_coll, keys);
 console.log('done');
