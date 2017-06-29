@@ -5,17 +5,28 @@ a utility to compare to mongo collections and generate 2 collections with the di
 # Usage
 The easiest way is to run it from Mongobooster. That is because it needs Lodas and ShellJS, which are provided in MongoBooster.
 
+- set up target db name
+
+- set up keys collection in the format `{key_field1:1, key_field1:1}`
+
 - set up the `coll1` and `coll2` objects with:
     - DB name
     - collection name 
-    - key set
     - label
+    - key mapping - for fields in the source collection that need to be matched with fields in the target collection
 
 Example:
 
 ```javascript
-var coll1 = new MongoCollection('ctml_ak81894_sd-dfc9-2176_2017_06_25_2200', 'fxpgEvent', 'ctml1', {tradeType: 'eventType'});
-var coll2 = new MongoCollection('QControlData_FX_2606', 'tradeEvent', 'ctml2', {});
+var target_dbname = 'QControlData_FX_2606';
+var keys = {usi:1, tradeType:1};
+var coll1 = new MongoCollection('ctml_ak81894_sd-dfc9-2176_2017_06_25_2200', 
+    'fxpgEvent', 
+    'ctml1', 
+    {tradeType: 'eventType'});
+var coll2 = new MongoCollection(target_dbname, 
+    'tradeEvent', 
+    'ctml2', {});
 ```
 
 
