@@ -1,31 +1,36 @@
 // diff 2 collections
 
-var coll1 = {
-    dbname: 'ctml_ak81894_sd-dfc9-2176_2017_06_25_2200',
-    coll: 'fxpgEvent',
-    label: 'ctml1',
-    keys: { usi: 1, tradeType: '$eventType' },
-    key_mapping : {tradeType: 'eventType'}
-};
 
-var coll2 = {
-    dbname: 'QControlData_FX_2606',
-    coll: 'tradeEvent',
-    label: 'ctml2',
-    keys: { usi: 1, tradeType: 1 },
-};
+var coll1 = new MongoCollection('ctml_ak81894_sd-dfc9-2176_2017_06_25_2200', 'fxpgEvent', 'ctml1', {tradeType: 'eventType'});
+var coll2 = new MongoCollection('QControlData_FX_2606', 'tradeEvent', 'ctml2', {});
 
-var target_dbname = coll2.dbname;
-var target_coll = buildUniqueCollName(coll2.coll, coll2.label);
+class MongoCollection {
+    dbname: string;
+    coll: string;
+    label: string;
+    key_mapping:Object;
+    
+    constructor(dbname: string,
+        coll: string,
+        label: string,
+        key_mapping: Object) {
+        this.dbname = dbname;
+        this.coll = coll;
+        this.label = label;
+        this.key_mapping = key_mapping;
+    }
+}
+var target_dbname:string = coll2.dbname;
+var target_coll = buildUniqueCollName(coll2);
 var work_dir = 'c:\\temp';
-var keys = coll2.keys;
+var keys = { usi: 1, tradeType: 1 };
 
-function find_unique(dbname: string, coll: string, side: string, keys) {
-    var _db = db.getSiblingDB(dbname);
-    var unique_coll = buildUniqueCollName(coll, side);
-    var _id = _.mapValues(keys, (value, key, object) => '$' + key);
-    _.assign(_id, { side: side })
-    var cursor = _db.getCollection(coll).aggregate(
+function find_unique(coll: MongoCollection, keys:Object) {
+    var _db = db.getSiblingDB(coll.dbname);
+    var unique_coll = buildUniqueCollName(coll);
+    var _id = _.mapValues(_.defaults(coll.key_mapping, keys), (value, key, object) => '$' + key);
+    _.assign(_id, { side: coll.side })
+    var cursor = _db.getCollection(coll.coll).aggregate(
         [
             { $project: keys },
             { $group: { _id: _id } },
@@ -36,16 +41,20 @@ function find_unique(dbname: string, coll: string, side: string, keys) {
         }
     );
     cursor.toArray();
-    console.log(_.template('unique record count for ${dbname}.${coll}: ${count}')
+    console.log(_.template('unique record count for ${coll.dbname}.${coll.coll}: ${count}')
         ({
-            'dbname': dbname,
-            'coll': coll,
+            'dbname': coll.dbname,
+            'coll': coll.coll,
             'count': _db.getCollection(unique_coll).count()
         }));
 }
 
-function buildUniqueCollName(coll: string, side: string): string {
-    return 'unique_' + coll + '_' + side;
+function mapKeys(keys:Object, key_mapping:Object) {
+    
+}
+
+function buildUniqueCollName(coll: MongoCollection): string {
+    return 'unique_' + coll.coll + '_' + coll.side;
 }
 
 
@@ -111,9 +120,9 @@ function minus(dbname, left, right, coll, keys) {
             );
     cursor.toArray();
 
-    // buildDifferenceCollection(_db, left, right, diff_coll);
-    // buildDifferenceCollection(_db, right, left, diff_coll);
-    console.log('done');
+    buildDifferenceCollection(_db, left, right, diff_coll);
+    buildDifferenceCollection(_db, right, left, diff_coll);
+    console.log('buiding diffrence collections done');
 }
 
 
@@ -141,11 +150,11 @@ function clean(dbname, left, right, target_coll) {
 }
 
 console.log('started');
-// clean(target_dbname, coll1, coll2, target_coll);
-// find_unique(coll1.dbname, coll1.coll, coll1.label, coll1.keys);
-// find_unique(coll2.dbname, coll2.coll, coll2.label, coll2.keys);
-// db.getSiblingDB(target_dbname).getCollection(target_coll).createIndex({ "_id.usi": 1 })
-// do_export();
-// do_import();
+clean(target_dbname, coll1, coll2, target_coll);
+find_unique(coll1, keys);
+find_unique(coll2, keys);
+db.getSiblingDB(target_dbname).getCollection(target_coll).createIndex({ "_id.usi": 1 })
+do_export();
+do_import();
 minus(target_dbname, coll1, coll2, target_coll, keys);
-console.log('done');
+console.log('comparison done');
