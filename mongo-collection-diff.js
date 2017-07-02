@@ -1,9 +1,6 @@
 // diff 2 collections
 
 
-var coll1 = new MongoCollection('ctml_ak81894_sd-dfc9-2176_2017_06_25_2200', 'fxpgEvent', 'ctml1', {tradeType: 'eventType'});
-var coll2 = new MongoCollection('QControlData_FX_2606', 'tradeEvent', 'ctml2', {});
-
 class MongoCollection {
     dbname: string;
     coll: string;
@@ -20,12 +17,16 @@ class MongoCollection {
         this.key_mapping = key_mapping;
     }
 }
+
+var coll1 = new MongoCollection('ctml_ak81894_sd-dfc9-2176_2017_06_25_2200', 'fxpgEvent', 'ctml1', {tradeType: 'eventType'});
+var coll2 = new MongoCollection('QControlData_FX_2606', 'tradeEvent', 'ctml2', {});
+
 var target_dbname:string = coll2.dbname;
 var target_coll = buildUniqueCollName(coll2);
 var work_dir = 'c:\\temp';
 var keys = { usi: 1, tradeType: 1 };
 
-function find_unique(coll: MongoCollection, keys:Object) {
+function build_unique_records_collection(coll: MongoCollection, keys:Object):void {
     var _db = db.getSiblingDB(coll.dbname);
     var unique_coll = buildUniqueCollName(coll);
     var _id = _.mapValues(_.defaults(coll.key_mapping, keys), (value, key, object) => '$' + key);
@@ -49,16 +50,13 @@ function find_unique(coll: MongoCollection, keys:Object) {
         }));
 }
 
-function mapKeys(keys:Object, key_mapping:Object) {
-    
-}
 
 function buildUniqueCollName(coll: MongoCollection): string {
-    return 'unique_' + coll.coll + '_' + coll.side;
+    return 'unique_' + coll.coll + '_' + coll.label;
 }
 
 
-function do_export() {
+function do_export():void {
     var export_cmd = _.template('"${mongoexport}" --verbose --host ${mongo_server} -d "${dbname}" -c "${unique_coll}" --out "${work_dir}\\${unique_coll}.json"  --type json')
         ({
             mongoexport: 'C:\\Program Files\\MongoDB\\Server\\3.2\\bin\\mongoexport',
@@ -74,7 +72,7 @@ function do_export() {
     console.log('after export')
 }
 
-function do_import() {
+function do_import():void {
     var import_cmd = _.template('"${mongoimport}" -v --host ${mongo_server} -d "${dbname}" -c "${target_coll}" --file "${work_dir}\\${unique_coll}.json"  --type json')
         ({
             mongoimport: 'C:\\Program Files\\MongoDB\\Server\\3.2\\bin\\mongoimport',
@@ -91,7 +89,7 @@ function do_import() {
 
 
 
-function minus(dbname, left, right, coll, keys) {
+function minus(dbname, left, right, coll, keys):void {
     console.log('calculating diff of ' + left.label + " and " + right.label);
     var diff_coll = "diff_" + left.label + "_" + right.label;
     var _db = db.getSiblingDB(dbname);
@@ -126,7 +124,7 @@ function minus(dbname, left, right, coll, keys) {
 }
 
 
-function buildDifferenceCollection(_db, left, right, diff_coll) {
+function buildDifferenceCollection(_db, left, right, diff_coll):void {
     console.log('building difference collection: ' + left.label + " minus" + right.label);
     var coll_l_minus_r = left.label + "_minus_" + right.label;
     _db.getCollection(coll_l_minus_r).remove({})
@@ -140,19 +138,24 @@ function buildDifferenceCollection(_db, left, right, diff_coll) {
     cursor.toArray();
 }
 
-function clean(dbname, left, right, target_coll) {
+function clean(dbname, left, right, target_coll):void {
     var diff_coll = "diff_" + left.label + "_" + right.label;
     var _db = db.getSiblingDB(dbname);
-    _db.getCollection(diff_coll).drop();
-    _db.getCollection(left.label + "_minus_" + right.label).drop();
-    _db.getCollection(right.label + "_minus_" + left.label).drop();
-    _db.getCollection(target_coll).drop();
+    var collectionsToClean = [
+        diff_coll,
+        left.label + "_minus_" + right.label,
+        right.label + "_minus_" + left.label,
+        buildUniqueCollName(left),
+        buildUniqueCollName(right)
+        ];
+        
+    _.forEach(collectionsToClean, c => _db.getCollection(c).drop());
 }
 
 console.log('started');
 clean(target_dbname, coll1, coll2, target_coll);
-find_unique(coll1, keys);
-find_unique(coll2, keys);
+build_unique_records_collection(coll1, keys);
+build_unique_records_collection(coll2, keys);
 db.getSiblingDB(target_dbname).getCollection(target_coll).createIndex({ "_id.usi": 1 })
 do_export();
 do_import();
