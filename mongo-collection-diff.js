@@ -1,6 +1,15 @@
 // diff 2 collections
 
 
+function logger(target) {
+  return function() {
+    console.log('starting '+ target.name);
+    target.apply(this);
+    console.log('ending '+ target.name);
+  };
+};
+
+
 class MongoCollection {
     dbname: string;
     coll: string;
@@ -18,15 +27,8 @@ class MongoCollection {
     }
 }
 
-var coll1 = new MongoCollection('ctml_ak81894_sd-dfc9-2176_2017_06_25_2200', 'fxpgEvent', 'ctml1', {tradeType: 'eventType'});
-var coll2 = new MongoCollection('QControlData_FX_2606', 'tradeEvent', 'ctml2', {});
 
-var target_dbname:string = coll2.dbname;
-var target_coll = buildUniqueCollName(coll2);
-var work_dir = 'c:\\temp';
-var keys = { usi: 1, tradeType: 1 };
-
-function build_unique_records_collection(coll: MongoCollection, keys:Object):void {
+var build_unique_records_collection = function (coll: MongoCollection, keys:Object):void {
     var _db = db.getSiblingDB(coll.dbname);
     var unique_coll = buildUniqueCollName(coll);
     var _id = _.mapValues(_.defaults(coll.key_mapping, keys), (value, key, object) => '$' + key);
@@ -49,20 +51,21 @@ function build_unique_records_collection(coll: MongoCollection, keys:Object):voi
             'count': _db.getCollection(unique_coll).count()
         }));
 }
-
+build_unique_records_collection = logger(build_unique_records_collection);
 
 function buildUniqueCollName(coll: MongoCollection): string {
     return 'unique_' + coll.coll + '_' + coll.label;
 }
 
 
-function do_export():void {
+var do_export = function(coll:MongoCollection):void {
+    var work_dir = 'c:\\temp';
     var export_cmd = _.template('"${mongoexport}" --verbose --host ${mongo_server} -d "${dbname}" -c "${unique_coll}" --out "${work_dir}\\${unique_coll}.json"  --type json')
         ({
             mongoexport: 'C:\\Program Files\\MongoDB\\Server\\3.2\\bin\\mongoexport',
             mongo_server: 'sd-dfc9-2176:27017',
-            dbname: coll1.dbname,
-            unique_coll: buildUniqueCollName(coll1.coll, coll1.label),
+            dbname: coll.dbname,
+            unique_coll: buildUniqueCollName(coll.coll, coll.label),
             work_dir: work_dir
         });
     console.log('running export command: ' + export_cmd);
@@ -71,25 +74,27 @@ function do_export():void {
         );
     console.log('after export')
 }
+do_export = logger(do_export);
 
-function do_import():void {
+var do_import = function(coll1:MongoCollection, coll2:MongoCollection):void {
+    var work_dir = 'c:\\temp';
     var import_cmd = _.template('"${mongoimport}" -v --host ${mongo_server} -d "${dbname}" -c "${target_coll}" --file "${work_dir}\\${unique_coll}.json"  --type json')
         ({
             mongoimport: 'C:\\Program Files\\MongoDB\\Server\\3.2\\bin\\mongoimport',
             mongo_server: 'sd-dfc9-2176:27017',
             dbname: target_dbname,
-            target_coll: buildUniqueCollName(coll2.coll, coll2.label),
-            unique_coll: buildUniqueCollName(coll1.coll, coll1.label),
+            target_coll: buildUniqueCollName(coll2),
+            unique_coll: buildUniqueCollName(coll1),
             work_dir: work_dir
         });
     console.log('running import command: ' + import_cmd);
     shelljs.exec(import_cmd, { async: false, silent: false });
     console.log('after export')
 }
+do_import = logger(do_import);
 
 
-
-function minus(dbname, left, right, coll, keys):void {
+var minus = function(dbname, left, right, coll, keys):void {
     console.log('calculating diff of ' + left.label + " and " + right.label);
     var diff_coll = "diff_" + left.label + "_" + right.label;
     var _db = db.getSiblingDB(dbname);
@@ -122,9 +127,9 @@ function minus(dbname, left, right, coll, keys):void {
     buildDifferenceCollection(_db, right, left, diff_coll);
     console.log('buiding diffrence collections done');
 }
+minus = logger(minus);
 
-
-function buildDifferenceCollection(_db, left, right, diff_coll):void {
+var buildDifferenceCollection = function(_db, left, right, diff_coll):void {
     console.log('building difference collection: ' + left.label + " minus" + right.label);
     var coll_l_minus_r = left.label + "_minus_" + right.label;
     _db.getCollection(coll_l_minus_r).remove({})
@@ -137,8 +142,9 @@ function buildDifferenceCollection(_db, left, right, diff_coll):void {
         ]);
     cursor.toArray();
 }
+buildDifferenceCollection = logger(buildDifferenceCollection);
 
-function clean(dbname, left, right, target_coll):void {
+var clean = function(dbname, left, right, target_coll):void {
     var diff_coll = "diff_" + left.label + "_" + right.label;
     var _db = db.getSiblingDB(dbname);
     var collectionsToClean = [
@@ -151,13 +157,25 @@ function clean(dbname, left, right, target_coll):void {
         
     _.forEach(collectionsToClean, c => _db.getCollection(c).drop());
 }
+clean = logger(clean);
 
-console.log('started');
-clean(target_dbname, coll1, coll2, target_coll);
-build_unique_records_collection(coll1, keys);
-build_unique_records_collection(coll2, keys);
-db.getSiblingDB(target_dbname).getCollection(target_coll).createIndex({ "_id.usi": 1 })
-do_export();
-do_import();
-minus(target_dbname, coll1, coll2, target_coll, keys);
-console.log('comparison done');
+var diff = function (target_dbname, coll1, coll2, target_coll, keys) {
+    clean(target_dbname, coll1, coll2, target_coll);
+    build_unique_records_collection(coll1, keys);
+    build_unique_records_collection(coll2, keys);
+    db.getSiblingDB(target_dbname).getCollection(target_coll).createIndex({ "_id.usi": 1 })
+    do_export(coll1);
+    do_import(coll1, coll2);
+    minus(target_dbname, coll1, coll2, target_coll, keys);
+}
+
+diff = logger(diff);
+
+var coll1 = new MongoCollection('ctml_ak81894_sd-dfc9-2176_2017_06_25_2200', 'fxpgEvent', 'ctml1', {tradeType: 'eventType'});
+var coll2 = new MongoCollection('QControlData_FX_2606', 'tradeEvent', 'ctml2', {});
+
+var target_dbname:string = coll2.dbname;
+var target_coll = buildUniqueCollName(coll2);
+var keys = { usi: 1, tradeType: 1 };
+
+diff(target_dbname, coll1, coll2, target_coll, keys);
