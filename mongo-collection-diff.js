@@ -1,15 +1,6 @@
 // diff 2 collections
 
 
-function logger(target) {
-  return function() {
-    console.log('starting '+ target.name);
-    target.apply(this);
-    console.log('ending '+ target.name);
-  };
-};
-
-
 class MongoCollection {
     dbname: string;
     coll: string;
@@ -51,7 +42,6 @@ var build_unique_records_collection = function (coll: MongoCollection, keys:Obje
             'count': _db.getCollection(unique_coll).count()
         }));
 }
-build_unique_records_collection = logger(build_unique_records_collection);
 
 function buildUniqueCollName(coll: MongoCollection): string {
     return 'unique_' + coll.coll + '_' + coll.label;
@@ -65,7 +55,7 @@ var do_export = function(coll:MongoCollection):void {
             mongoexport: 'C:\\Program Files\\MongoDB\\Server\\3.2\\bin\\mongoexport',
             mongo_server: 'sd-dfc9-2176:27017',
             dbname: coll.dbname,
-            unique_coll: buildUniqueCollName(coll.coll, coll.label),
+            unique_coll: buildUniqueCollName(coll),
             work_dir: work_dir
         });
     console.log('running export command: ' + export_cmd);
@@ -74,7 +64,6 @@ var do_export = function(coll:MongoCollection):void {
         );
     console.log('after export')
 }
-do_export = logger(do_export);
 
 var do_import = function(coll1:MongoCollection, coll2:MongoCollection):void {
     var work_dir = 'c:\\temp';
@@ -91,7 +80,6 @@ var do_import = function(coll1:MongoCollection, coll2:MongoCollection):void {
     shelljs.exec(import_cmd, { async: false, silent: false });
     console.log('after export')
 }
-do_import = logger(do_import);
 
 
 var minus = function(dbname, left, right, coll, keys):void {
@@ -127,7 +115,6 @@ var minus = function(dbname, left, right, coll, keys):void {
     buildDifferenceCollection(_db, right, left, diff_coll);
     console.log('buiding diffrence collections done');
 }
-minus = logger(minus);
 
 var buildDifferenceCollection = function(_db, left, right, diff_coll):void {
     console.log('building difference collection: ' + left.label + " minus" + right.label);
@@ -142,7 +129,6 @@ var buildDifferenceCollection = function(_db, left, right, diff_coll):void {
         ]);
     cursor.toArray();
 }
-buildDifferenceCollection = logger(buildDifferenceCollection);
 
 var clean = function(dbname, left, right, target_coll):void {
     var diff_coll = "diff_" + left.label + "_" + right.label;
@@ -157,7 +143,6 @@ var clean = function(dbname, left, right, target_coll):void {
         
     _.forEach(collectionsToClean, c => _db.getCollection(c).drop());
 }
-clean = logger(clean);
 
 var diff = function (target_dbname, coll1, coll2, target_coll, keys) {
     clean(target_dbname, coll1, coll2, target_coll);
@@ -169,7 +154,6 @@ var diff = function (target_dbname, coll1, coll2, target_coll, keys) {
     minus(target_dbname, coll1, coll2, target_coll, keys);
 }
 
-diff = logger(diff);
 
 var coll1 = new MongoCollection('ctml_ak81894_sd-dfc9-2176_2017_06_25_2200', 'fxpgEvent', 'ctml1', {tradeType: 'eventType'});
 var coll2 = new MongoCollection('QControlData_FX_2606', 'tradeEvent', 'ctml2', {});
